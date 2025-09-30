@@ -1,5 +1,5 @@
 {
-  "name": "effect-mcp",
+  "name": "effect-mcp2",
   "version": "0.1.14",
   "type": "module",
   "publishConfig": {
@@ -7,7 +7,7 @@
     "directory": "dist"
   },
   "bin": {
-    "effect-mcp": "./dist/main.cjs"
+    "effect-mcp2": "./dist/main.cjs"
   },
   "files": [
     "dist",
@@ -18,27 +18,31 @@
   "scripts": {
     "build": "tsup && tsx ./scripts/copy-package-json.ts",
     "dev": "tsx --watch src/main.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "prettier --check .",
+    "test": "vitest run",
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
     "prepublishOnly": "pnpm build"
   },
   "devDependencies": {
     "@changesets/changelog-github": "^0.5.1",
-    "@changesets/cli": "^2.29.6",
-    "@effect/language-service": "^0.37.0",
+    "@changesets/cli": "^2.29.7",
+    "@effect/language-service": "^0.41.1",
     "@effect/platform-node": "https://pkg.pr.new/Effect-TS/effect-smol/@effect/platform-node@7b514c2",
-    "@types/node": "^24.3.1",
+    "@types/node": "^24.6.0",
     "@types/unist": "^3.0.3",
     "effect": "https://pkg.pr.new/Effect-TS/effect-smol/effect@7b514c2",
-    "minisearch": "^7.1.2",
+    "esbuild-visualizer": "^0.7.0",
+    "minisearch": "^7.2.0",
     "prettier": "^3.6.2",
     "remark-frontmatter": "^5.0.0",
     "remark-parse": "^11.0.0",
     "remark-parse-frontmatter": "^1.0.3",
     "remark-stringify": "^11.0.0",
     "tsup": "^8.5.0",
-    "tsx": "^4.20.5",
+    "tsx": "^4.20.6",
     "typescript": "^5.9.2",
     "unified": "^11.0.5"
   },
-  "packageManager": "pnpm@10.12.1+sha512.f0dda8580f0ee9481c5c79a1d927b9164f2c478e90992ad268bbb2465a736984391d6333d2c327913578b2804af33474ca554ba29c04a8b13060a717675ae3ac",
-  "dependencies": {}
+  "packageManager": "pnpm@10.17.1"
 }

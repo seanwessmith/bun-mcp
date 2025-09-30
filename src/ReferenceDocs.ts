@@ -1,7 +1,6 @@
 import { NodeHttpClient, NodePath } from "@effect/platform-node"
 import { Effect, Layer, pipe, Schedule } from "effect"
 import { Cache } from "effect/caching"
-import { Array } from "effect/collections"
 import { Option } from "effect/data"
 import { Path } from "effect/platform"
 import { Schema } from "effect/schema"
@@ -58,6 +57,10 @@ const toolkit = AiToolkit.make(
       page: Schema.optional(Schema.Number).annotate({
         description: "The page number to retrieve for the document content.",
       }),
+      pageSize: Schema.optional(Schema.Number).annotate({
+        description:
+          "The number of lines per page. Defaults to 200 and caps at 500 to avoid oversized responses.",
+      }),
     },
     success: Schema.Struct({
       content: Schema.String,
@@ -73,6 +76,7 @@ interface DocumentEntry {
   readonly id: number
   readonly title: string
   readonly description?: string
+  readonly preview: string
   readonly content: Effect.Effect<string>
 }
 
@@ -86,9 +90,9 @@ const ToolkitLayer = pipe(
         HttpClient.retry(retryPolicy),
       )
       const markdown = yield* Markdown
-      const docs = Array.empty<DocumentEntry>()
+      const docs: Array<DocumentEntry> = []
       const minisearch = new Minisearch<DocumentEntry>({
-        fields: ["title", "description"],
+        fields: ["title", "description", "preview"],
         searchOptions: {
           boost: { title: 2 },
         },
@@ -98,35 +102,66 @@ const ToolkitLayer = pipe(
           id: docs.length,
           title: doc.title,
           description: doc.description,
+          preview: doc.preview,
           content: doc.content,
         }
         docs.push(entry)
         minisearch.add(entry)
       }
 
-      // Guides documentation
-      for (const guide of guides) {
-        addDoc({
-          title: guide.title,
-          description: guide.description,
-          content: client.get(guide.url).pipe(
-            Effect.flatMap((response) => response.text),
-            Effect.orDie,
-          ),
-        })
-      }
+      const fallbackBody = (kind: string, name: string) =>
+        `# ${name}
 
-      // Readme documentation
-      for (const readme of readmes) {
-        addDoc({
-          title: readme.title,
-          description: readme.description,
-          content: client.get(readme.url).pipe(
-            Effect.flatMap((response) => response.text),
-            Effect.orDie,
+This ${kind} could not be loaded right now. Please try again later.`
+
+      const makePreview = (value: string) =>
+        value.split("\n").reduce((acc, line) => {
+          if (acc.length >= 400) {
+            return acc
+          }
+          const trimmed = line.trim()
+          if (trimmed.length === 0) {
+            return acc
+          }
+          const next = acc.length === 0 ? trimmed : `${acc} ${trimmed}`
+          return next.slice(0, 400)
+        }, "")
+
+      const fetchText = (url: string, kind: string, name: string) =>
+        client.get(url).pipe(
+          Effect.flatMap((response) => response.text),
+          Effect.catch((cause) =>
+            Effect.logError("Failed to fetch documentation", {
+              kind,
+              name,
+              url,
+              cause,
+            }).pipe(Effect.as(fallbackBody(kind, name))),
           ),
-        })
-      }
+        )
+
+      const addStaticDocs = (kind: "guide" | "readme") =>
+        Effect.forEach(
+          (kind === "guide" ? guides : readmes) as ReadonlyArray<any>,
+          (entry: any) =>
+            Effect.gen(function* () {
+              const body = yield* fetchText(
+                entry.url,
+                kind,
+                kind === "guide" ? entry.name : entry.package,
+              )
+              addDoc({
+                title: entry.title,
+                description: entry.description,
+                preview: makePreview(body) || entry.description,
+                content: Effect.succeed(body),
+              })
+            }),
+          { discard: true },
+        )
+
+      yield* addStaticDocs("guide")
+      yield* addStaticDocs("readme")
 
       // Website documentation
       yield* client.get(websiteContentUrl).pipe(
@@ -141,18 +176,30 @@ const ToolkitLayer = pipe(
                 Effect.flatMap((md) => markdown.process(md)),
                 Effect.map((file) => {
                   const dirname = path_.basename(path_.dirname(filePath))
+                  const title =
+                    dirname !== "docs"
+                      ? `${dirname.replace("-", " ")} - ${file.title}`
+                      : file.title
                   addDoc({
-                    title:
-                      dirname !== "docs"
-                        ? `${dirname.replace("-", " ")} - ${file.title}`
-                        : file.title,
+                    title,
                     description: file.description,
+                    preview:
+                      (makePreview(file.content) || file.description) ?? title,
                     content: Effect.succeed(file.content),
                   })
                 }),
+                Effect.catch((cause: unknown) =>
+                  Effect.logError("Failed to fetch website doc", {
+                    filePath,
+                    cause,
+                  }),
+                ),
               ),
-            { concurrency: "unbounded", discard: true },
+            { concurrency: 10, discard: true },
           ),
+        ),
+        Effect.catch((cause: unknown) =>
+          Effect.logError("Failed to fetch website content index", { cause }),
         ),
         Effect.forkScoped,
       )
@@ -162,32 +209,62 @@ const ToolkitLayer = pipe(
         Effect.flatMap(
           docsClient.get(url),
           HttpClientResponse.schemaBodyJson(DocEntry.Array),
+        ).pipe(
+          Effect.catch((cause: unknown) =>
+            Effect.logError("Failed to fetch reference docs", {
+              url,
+              cause,
+            }).pipe(Effect.as([] as Array<DocEntry>)),
+          ),
         )
 
       yield* Effect.forEach(docUrls, loadDocs, {
         concurrency: docUrls.length,
       }).pipe(
-        Effect.map((entries) => {
-          for (const entry of entries.flat()) {
-            addDoc({
-              title: entry.nameWithModule,
-              content: entry.asMarkdown,
-            })
-          }
-        }),
+        Effect.flatMap((entries) =>
+          Effect.forEach(entries.flat(), (entry: DocEntry) =>
+            Effect.gen(function* () {
+              const description =
+                Option.getOrNull(entry.description) ?? undefined
+              const preview =
+                description ??
+                `${entry.project} ${entry.moduleTitle} ${entry.name}`
+              const content = yield* entry.asMarkdown.pipe(
+                Effect.catch((cause: unknown) =>
+                  Effect.logError("Failed to render reference doc", {
+                    doc: entry.nameWithModule,
+                    cause,
+                  }).pipe(
+                    Effect.as(
+                      fallbackBody("reference doc", entry.nameWithModule),
+                    ),
+                  ),
+                ),
+              )
+
+              addDoc({
+                title: entry.nameWithModule,
+                description: description ?? "",
+                preview: preview ?? "",
+                content: Effect.succeed(content),
+              })
+            }),
+          ),
+        ),
         Effect.forkScoped,
       )
 
       const search = (query: string) =>
-        Effect.sync(() =>
-          minisearch
-            .search(query)
-            .slice(0, 50)
-            .map((result) => docs[result.id]),
-        )
+        Effect.sync(() => {
+          const results = minisearch.search(query).slice(0, 50)
+          return results.map((result) => docs[result.id])
+        })
 
       const cache = yield* Cache.make({
-        lookup: (id: number) => docs[id].content,
+        lookup: (id: number) =>
+          docs[id].content.pipe(
+            Effect.map((content) => content.split("\n")),
+          ),
         capacity: 512,
         timeToLive: "12 hours",
       })
@@ -199,19 +276,23 @@ const ToolkitLayer = pipe(
             results: results.map((result) => ({
               documentId: result.id,
               title: result.title,
-              description: result.description,
+              description: result.description ?? result.preview,
             })),
           }
         }),
-        get_effect_doc: Effect.fnUntraced(function* ({ documentId, page = 1 }) {
-          const pageSize = 1000
-          const content = yield* Cache.get(cache, documentId)
-          const lines = content.split("\n")
-          const pages = Math.ceil(lines.length / pageSize)
-          const offset = (page - 1) * pageSize
+        get_effect_doc: Effect.fnUntraced(function* ({
+          documentId,
+          page = 1,
+          pageSize,
+        }) {
+          const size = Math.min(Math.max(Math.floor(pageSize ?? 200), 1), 500)
+          const lines = yield* Cache.get(cache, documentId)
+          const pages = Math.max(1, Math.ceil(lines.length / size))
+          const currentPage = Math.min(Math.max(page, 1), pages)
+          const offset = (currentPage - 1) * size
           return {
-            content: lines.slice(offset, offset + pageSize).join("\n"),
-            page,
+            content: lines.slice(offset, offset + size).join("\n"),
+            page: currentPage,
             totalPages: pages,
           }
         }),

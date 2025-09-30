@@ -39,10 +39,7 @@ export class Markdown extends ServiceMap.Key<Markdown>()("Markdown", {
     const process = (markdown: string) =>
       Effect.promise(() => processor.process(markdown)).pipe(
         Effect.map((vfile) => {
-          const frontmatter = (vfile.data.frontmatter ?? {}) as Record<
-            string,
-            string
-          >
+          const frontmatter = (vfile.data.frontmatter ?? {}) as Record<string, string>
           const headings = (vfile.data.headings ?? []) as Array<{
             depth: number
             text: string
@@ -51,9 +48,18 @@ export class Markdown extends ServiceMap.Key<Markdown>()("Markdown", {
             .filter((h) => h.depth === 2)
             .map((h) => h.text)
             .join("\n- ")
+          const title = frontmatter.title ?? headings.find((h) => h.depth === 1)?.text
+          const descriptionParts = [frontmatter.description]
+          if (h2s.length > 0) {
+            descriptionParts.push(`- ${h2s}`)
+          }
+          const description = descriptionParts
+            .filter((part): part is string => Boolean(part && part.trim().length > 0))
+            .join("\n\n")
+            .trim()
           return {
-            title: frontmatter.title,
-            description: `${frontmatter.description}\n\n- ${h2s}`,
+            title: title ?? "Untitled",
+            description: description.length > 0 ? description : undefined,
             frontmatter,
             headings,
             content: vfile.value as string,

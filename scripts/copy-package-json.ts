@@ -13,7 +13,7 @@ const read = pipe(
     version: json.version,
     description: json.description,
     bin: {
-      "effect-mcp": "main.cjs",
+      "effect-mcp2": "main.cjs",
     },
     engines: json.engines,
     repository: json.repository,

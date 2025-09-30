@@ -5,10 +5,11 @@ import { ReferenceDocsTools } from "./ReferenceDocs.js"
 import { Readmes } from "./Readmes.js"
 import { McpServer } from "effect/unstable/ai"
 import { Logger } from "effect/logging"
+import pkg from "../package.json" with { type: "json" }
 
 McpServer.layerStdio({
-  name: "effect-mcp",
-  version: "0.1.0",
+  name: pkg.name,
+  version: pkg.version,
   stdin: NodeStream.stdin,
   stdout: NodeSink.stdout,
 }).pipe(

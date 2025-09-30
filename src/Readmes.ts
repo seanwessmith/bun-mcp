@@ -1,8 +1,11 @@
 import { NodeHttpClient } from "@effect/platform-node"
-import { Effect, Layer } from "effect"
+import { Effect, Layer, Schedule } from "effect"
 import { Array } from "effect/collections"
+import { Duration } from "effect/time"
 import { McpServer } from "effect/unstable/ai"
 import { HttpClient } from "effect/unstable/http"
+
+const retryPolicy = Schedule.spaced(Duration.seconds(3))
 
 export const guides = [
   {
@@ -65,25 +68,36 @@ Contains information about:
   },
 ] as const
 
-export const Readmes = Layer.mergeAll(
-  ...Array.map(guides, (guide) =>
-    McpServer.resource({
-      uri: `effect://guide/${guide.name}`,
-      name: guide.title,
-      description: guide.description,
-      content: HttpClient.get(guide.url).pipe(
-        Effect.flatMap((response) => response.text),
-      ),
-    }),
-  ),
-  ...Array.map(readmes, (readme) =>
-    McpServer.resource({
-      uri: `effect://readme/${readme.package}`,
-      name: readme.name,
-      description: readme.description,
-      content: HttpClient.get(readme.url).pipe(
-        Effect.flatMap((response) => response.text),
-      ),
-    }),
-  ),
-).pipe(Layer.provide(NodeHttpClient.layerUndici))
+const makeReadmesLayer = Effect.gen(function* () {
+  const client = (yield* HttpClient.HttpClient).pipe(
+    HttpClient.filterStatusOk,
+    HttpClient.retry(retryPolicy),
+  )
+
+  return Layer.mergeAll(
+    ...Array.map(guides, (guide) =>
+      McpServer.resource({
+        uri: `effect://guide/${guide.name}`,
+        name: guide.title,
+        description: guide.description,
+        content: client.get(guide.url).pipe(
+          Effect.flatMap((response) => response.text),
+        ),
+      }),
+    ),
+    ...Array.map(readmes, (readme) =>
+      McpServer.resource({
+        uri: `effect://readme/${readme.package}`,
+        name: readme.name,
+        description: readme.description,
+        content: client.get(readme.url).pipe(
+          Effect.flatMap((response) => response.text),
+        ),
+      }),
+    ),
+  )
+})
+
+export const Readmes = Layer.unwrap(makeReadmesLayer).pipe(
+  Layer.provide(NodeHttpClient.layerUndici),
+)
