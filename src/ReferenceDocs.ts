@@ -49,6 +49,22 @@ const toolkit = AiToolkit.make(
     .annotate(AiTool.Readonly, true)
     .annotate(AiTool.Destructive, false),
 
+  // Alias to match external guidance/docs naming
+  AiTool.make("effect_docs_search", {
+    description:
+      "Searches the Effect documentation. Result content can be accessed with the `get_effect_doc` tool.",
+    parameters: {
+      query: Schema.String.annotate({
+        description: "The search query to look for in the documentation.",
+      }),
+    },
+    success: Schema.Struct({
+      results: Schema.Array(SearchResult),
+    }),
+  })
+    .annotate(AiTool.Readonly, true)
+    .annotate(AiTool.Destructive, false),
+
   AiTool.make("get_effect_doc", {
     description:
       "Get the Effect documentation for a documentId. The content might be paginated. Use the `page` parameter to specify which page to retrieve.",
@@ -271,30 +287,137 @@ This ${kind} could not be loaded right now. Please try again later.`
 
       return toolkit.of({
         effect_doc_search: Effect.fnUntraced(function* ({ query }) {
-          const results = yield* Effect.orDie(search(query))
-          return {
+          const start = Date.now()
+          // Annotate span + log start
+          yield* Effect.annotateCurrentSpan({
+            tool: "effect_doc_search",
+            query: query.slice(0, 200),
+          })
+          yield* Effect.logDebug("tool.start", {
+            tool: "effect_doc_search",
+            query: query.slice(0, 200),
+          })
+
+          const results = yield* Effect.orDie(search(query)).pipe(
+            Effect.catch((cause) =>
+              Effect.logError("tool.failure", {
+                tool: "effect_doc_search",
+                durationMs: Date.now() - start,
+                cause,
+              }).pipe(Effect.flatMap(() => Effect.fail(cause))),
+            ),
+          )
+
+          const payload = {
             results: results.map((result) => ({
               documentId: result.id,
               title: result.title,
               description: result.description ?? result.preview,
             })),
           }
+
+          yield* Effect.logInfo("tool.success", {
+            tool: "effect_doc_search",
+            durationMs: Date.now() - start,
+            resultCount: results.length,
+          })
+
+          return payload
         }),
+
+        // Alias matching guide: `effect_docs_search`
+        effect_docs_search: Effect.fnUntraced(function* ({ query }) {
+          const start = Date.now()
+          // Annotate span + log start
+          yield* Effect.annotateCurrentSpan({
+            tool: "effect_docs_search",
+            query: query.slice(0, 200),
+          })
+          yield* Effect.logDebug("tool.start", {
+            tool: "effect_docs_search",
+            query: query.slice(0, 200),
+          })
+
+          const results = yield* Effect.orDie(search(query)).pipe(
+            Effect.catch((cause) =>
+              Effect.logError("tool.failure", {
+                tool: "effect_docs_search",
+                durationMs: Date.now() - start,
+                cause,
+              }).pipe(Effect.flatMap(() => Effect.fail(cause))),
+            ),
+          )
+
+          const payload = {
+            results: results.map((result) => ({
+              documentId: result.id,
+              title: result.title,
+              description: result.description ?? result.preview,
+            })),
+          }
+
+          yield* Effect.logInfo("tool.success", {
+            tool: "effect_docs_search",
+            durationMs: Date.now() - start,
+            resultCount: results.length,
+          })
+
+          return payload
+        }),
+
         get_effect_doc: Effect.fnUntraced(function* ({
           documentId,
           page = 1,
           pageSize,
         }) {
+          const start = Date.now()
           const size = Math.min(Math.max(Math.floor(pageSize ?? 200), 1), 500)
-          const lines = yield* Cache.get(cache, documentId)
+
+          // Annotate span + log start
+          yield* Effect.annotateCurrentSpan({
+            tool: "get_effect_doc",
+            documentId: String(documentId),
+            page: String(page),
+            pageSize: String(pageSize ?? 200),
+          })
+          yield* Effect.logDebug("tool.start", {
+            tool: "get_effect_doc",
+            documentId,
+            page,
+            pageSize: size,
+          })
+
+          const lines = yield* Cache.get(cache, documentId).pipe(
+            Effect.catch((cause) =>
+              Effect.logError("tool.failure", {
+                tool: "get_effect_doc",
+                durationMs: Date.now() - start,
+                documentId,
+                cause,
+              }).pipe(Effect.flatMap(() => Effect.fail(cause))),
+            ),
+          )
           const pages = Math.max(1, Math.ceil(lines.length / size))
           const currentPage = Math.min(Math.max(page, 1), pages)
           const offset = (currentPage - 1) * size
-          return {
+
+          const payload = {
             content: lines.slice(offset, offset + size).join("\n"),
             page: currentPage,
             totalPages: pages,
           }
+
+          yield* Effect.logInfo("tool.success", {
+            tool: "get_effect_doc",
+            durationMs: Date.now() - start,
+            documentId,
+            page: currentPage,
+            pageSize: size,
+            totalPages: pages,
+            contentLength: payload.content.length,
+          })
+
+          return payload
         }),
       })
     }),
