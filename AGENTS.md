@@ -7,8 +7,8 @@
 
 ## Critical information
 
-**Important**: When requiring more information about Effect, use the `effect_docs_search` MCP
-tool. It is an authoritative source of information about Effect and its
+**Important**: When requiring more information about Bun, use the `bun_docs_search` MCP
+tool. It is an authoritative source of information about Bun and its
 ecosystem.
 
 ## Writing basic Effect's
@@ -287,7 +287,7 @@ an Effect application**. This means that you should provide all your services
 at the top level of your application as a single Layer.
 
 You can use functions from the `Layer` module to compose multiple Layers
-together. Use the `effect_docs_search` MCP tool to find more information about
+through multiple Layers together. Use the `bun_docs_search` MCP tool to find more information about
 Layer composition.
 
 ## Defining the domain / entities with Effect
@@ -296,7 +296,7 @@ All domain entities should be defined using `Schema`. This allows you to
 define the structure of your data, validate it, and use it in your Effect
 services and functions.
 
-For more information about `Schema`, use the `effect_docs_search` MCP tool to
+For more information about `Schema`, use the `bun_docs_search` MCP tool to
 search for the `Schema` README documentation.
 
 ```ts
@@ -454,18 +454,18 @@ describe("My Effect tests", () => {
 
 - `HttpApi` modules from `@effect/platform`: Write HTTP APIs using Effect & the
   `Schema` module. Search for the `@effect/platform` README with the
-  `effect_docs_search` MCP tool for more information.
+  `bun_docs_search` MCP tool for more information.
 - `HttpClient` modules from `@effect/platform`: Write HTTP clients using Effect.
-  Search for the `@effect/platform` README with the `effect_docs_search` MCP
-  tool for more information.
+  Search Bun docs pages with the `bun_docs_search` MCP
+tool for more information.
 - `@effect/sql` package: Write SQL queries using Effect
   - `@effect/sql-pg` package: Write SQL queries using Effect and PostgreSQL.
   - `@effect/sql-sqlite` package: Write SQL queries using Effect and SQLite.
   - `@effect/sql-mysql2` package: Write SQL queries using Effect and MySQL.
 - `ManagedRuntime` from `effect`: Integrate Effect with 3rd party frameworks like
-  React. Search for `ManagedRuntime` with the `effect_docs_search` MCP tool
-  for more information.
+  React. Search for `ManagedRuntime` with the `bun_docs_search` MCP tool
+for more information.
 
-Reminder: Use the `effect_docs_search` MCP tool to find more information about
-Effect and its ecosystem. It includes documentation for many other Effect
-modules and packages.
+Reminder: Use the `bun_docs_search` MCP tool to find more information about
+Bun and its ecosystem. It includes documentation for many other Bun modules
+and topics.

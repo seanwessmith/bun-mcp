@@ -7,8 +7,8 @@ import { McpServer } from "effect/unstable/ai"
 import { HttpClient } from "effect/unstable/http"
 import { describe, expect, it } from "vitest"
 import { Markdown } from "./Markdown.js"
-import { ReferenceDocsTools } from "./ReferenceDocs.js"
-import { Readmes } from "./Readmes.js"
+import { BunDocsTools } from "./BunDocs.js"
+import { BunResources } from "./BunResources.js"
 
 describe("Integration Tests", () => {
   describe("MCP Server Startup/Shutdown", () => {
@@ -25,7 +25,7 @@ describe("Integration Tests", () => {
             stdout: NodeSink.stdout,
           })
         ),
-        Effect.provide([ReferenceDocsTools, Readmes]),
+        Effect.provide([BunDocsTools, BunResources]),
         Effect.scoped,
         Effect.runPromise,
       )
@@ -67,7 +67,7 @@ describe("Integration Tests", () => {
   })
 
   describe("Tool Execution", () => {
-    describe("effect_doc_search", () => {
+    describe("bun_docs_search", () => {
       it("should execute search and return results", async () => {
         // This is a simplified test - in real integration tests,
         // we would set up the full server and test the actual tool execution
@@ -75,20 +75,20 @@ describe("Integration Tests", () => {
           results: [
             {
               documentId: 0,
-              title: "Effect.succeed",
-              description: "Creates a successful Effect",
+              title: "Bun.build",
+              description: "Bun's fast native bundler",
             },
             {
               documentId: 1,
-              title: "Effect.fail",
-              description: "Creates a failed Effect",
+              title: "bun install",
+              description: "Package manager install command",
             },
           ],
         })
 
         const result = await Effect.runPromise(mockSearch)
         expect(result.results).toHaveLength(2)
-        expect(result.results[0].title).toBe("Effect.succeed")
+        expect(result.results[0].title).toBe("Bun.build")
       })
 
       it("should limit results to 50 items", async () => {
@@ -109,7 +109,7 @@ describe("Integration Tests", () => {
       })
     })
 
-    describe("get_effect_doc", () => {
+    describe("get_bun_doc", () => {
       it("should retrieve document content with pagination", async () => {
         const mockContent = Array.from({ length: 500 }, (_, i) => `Line ${i + 1}`)
 

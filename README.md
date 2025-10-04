@@ -1,10 +1,28 @@
-# effect mcp server
+# Bun Docs MCP Server
 
-This MCP server adds tools and resources for accessing Effect documentation.
+This MCP server exposes tools and resources for searching and reading the Bun documentation (implemented with Effect runtime and layering).
+
+What you get:
+
+- Tools
+  - `bun_docs_search({ query }) -> { results: { documentId, title, description? }[] }`
+  - `get_bun_doc({ documentId, page?, pageSize? }) -> { content, page, totalPages }`
+    - `pageSize` defaults to 200 and is capped at 500.
+- Resources
+  - `bun://doc/installation`
+  - `bun://doc/quickstart`
+  - `bun://doc/bundler`
+  - `bun://doc/runtime/bun-apis`
+
+How it works:
+
+- Crawls `https://bun.com/sitemap.xml` and fetches markdown from `https://bun.com/docs/<slug>.md`.
+- Parses titles/descriptions via a small Markdown processor.
+- Builds an in-memory MiniSearch index and serves paginated content slices.
 
 ## Usage
 
-You can run with docker using:
+Run with Docker:
 
 ```bash
 docker run --rm -i timsmart/effect-mcp2
@@ -17,21 +35,22 @@ npx -y effect-mcp2@latest
 ```
 
 ## Cursor
-To use this MCP server with Cursor, please add the following to your cursor `mcp.json`:
+
+Add to your Cursor `mcp.json`:
 
 ```json
-"effect-docs": {
+"bun-docs": {
   "command": "npx",
   "args": ["-y", "effect-mcp2@latest"]
 }
 ```
 
-## Claude Code Integration
+## Claude Code
 
-To use this MCP server with Claude Code, run the following command:
+Register with Claude Code:
 
 ```bash
-claude mcp add-json effect-docs '{
+claude mcp add-json bun-docs '{
   "command": "npx",
   "args": [
     "-y",
@@ -40,3 +59,14 @@ claude mcp add-json effect-docs '{
   "env": {}
 }' -s user
 ```
+
+## Development
+
+- Build: `pnpm build`
+- Test: `pnpm test` (see `src/*.test.ts`)
+- Dev (watch): `pnpm dev`
+
+## Notes
+
+- This server uses Effect for layering, logging, HTTP client, and caching.
+- Prefer using the `bun_docs_search` tool for discovery; then fetch content with `get_bun_doc` using the returned `documentId` and optional pagination.
