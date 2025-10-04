@@ -21,16 +21,18 @@ export class Markdown extends ServiceMap.Key<Markdown>()("Markdown", {
       .use(() => (tree, file) => {
         if (tree.type !== "root") return
         const root = tree as NodeWithChildren
-        const headings: Array<{ depth: number; text: string }> = []
+        const headings: Array<{ depth: number; text: string; line: number }> = []
         file.data.headings = headings
         for (const node of root.children) {
           if (node.type !== "heading") continue
           const text = node.children
             .flatMap((n) => (n.type === "text" ? [n.value] : []))
             .join("")
+          const line = (node as any).position?.start?.line ?? 1
           headings.push({
             depth: node.depth!,
             text,
+            line,
           })
         }
       })
@@ -43,6 +45,7 @@ export class Markdown extends ServiceMap.Key<Markdown>()("Markdown", {
           const headings = (vfile.data.headings ?? []) as Array<{
             depth: number
             text: string
+            line: number
           }>
           const h2s = headings
             .filter((h) => h.depth === 2)

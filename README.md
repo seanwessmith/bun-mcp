@@ -8,6 +8,8 @@ What you get:
   - `bun_docs_search({ query }) -> { results: { documentId, title, description? }[] }`
   - `get_bun_doc({ documentId, page?, pageSize? }) -> { content, page, totalPages }`
     - `pageSize` defaults to 200 and is capped at 500.
+  - `get_bun_doc_pages({ documentId, startPage, endPage?, pageSize? }) -> { content, startPage, endPage, totalPages }`
+  - `get_bun_doc_section({ documentId, heading, depth?, pageSize? }) -> { content, fromLine, toLine, pageStart, pageEnd, totalPages }`
 - Resources
   - `bun://doc/installation`
   - `bun://doc/quickstart`
@@ -69,4 +71,7 @@ claude mcp add-json bun-docs '{
 ## Notes
 
 - This server uses Effect for layering, logging, HTTP client, and caching.
-- Prefer using the `bun_docs_search` tool for discovery; then fetch content with `get_bun_doc` using the returned `documentId` and optional pagination.
+- Prefer using `bun_docs_search` for discovery; then:
+  - Use `get_bun_doc` for a single page.
+  - Use `get_bun_doc_pages` to reduce call count when you need a range.
+  - Use `get_bun_doc_section` to fetch a specific heading’s content directly.

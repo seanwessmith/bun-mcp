@@ -76,7 +76,7 @@ Some content`
           }).pipe(Effect.provide(Markdown.layer))
         )
 
-        expect(result.headings).toEqual([
+        expect(result.headings.map(({ depth, text }) => ({ depth, text }))).toEqual([
           { depth: 1, text: "Level 1" },
           { depth: 2, text: "Level 2" },
           { depth: 3, text: "Level 3" },
@@ -98,7 +98,7 @@ Some content`
         )
 
         // The implementation only extracts text nodes, not inline formatting
-        expect(result.headings).toEqual([
+        expect(result.headings.map(({ depth, text }) => ({ depth, text }))).toEqual([
           { depth: 1, text: "Heading with  and " },
           { depth: 2, text: "Heading with  and " },
         ])
@@ -118,7 +118,7 @@ More content
           }).pipe(Effect.provide(Markdown.layer))
         )
 
-        expect(result.headings).toEqual([
+        expect(result.headings.map(({ depth, text }) => ({ depth, text }))).toEqual([
           { depth: 2, text: "First H2" },
           { depth: 2, text: "Second H2" },
           { depth: 2, text: "Third H2" },

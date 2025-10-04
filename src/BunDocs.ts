@@ -60,6 +60,52 @@ const toolkit = AiToolkit.make(
   })
     .annotate(AiTool.Readonly, true)
     .annotate(AiTool.Destructive, false),
+
+  AiTool.make("get_bun_doc_pages", {
+    description:
+      "Get multiple pages of a Bun doc in one call (inclusive range).",
+    parameters: {
+      documentId,
+      startPage: Schema.Number.annotate({ description: "Start page (1-indexed)." }),
+      endPage: Schema.optional(Schema.Number).annotate({ description: "End page (inclusive). Defaults to startPage." }),
+      pageSize: Schema.optional(Schema.Number).annotate({
+        description:
+          "Lines per page. Defaults to 200 and caps at 500 to avoid oversized responses.",
+      }),
+    },
+    success: Schema.Struct({
+      content: Schema.String,
+      startPage: Schema.Number,
+      endPage: Schema.Number,
+      totalPages: Schema.Number,
+    }),
+  })
+    .annotate(AiTool.Readonly, true)
+    .annotate(AiTool.Destructive, false),
+
+  AiTool.make("get_bun_doc_section", {
+    description:
+      "Get a specific section of a Bun doc by heading text. Returns content and page bounds.",
+    parameters: {
+      documentId,
+      heading: Schema.String.annotate({ description: "Heading text to locate (case-insensitive)." }),
+      depth: Schema.optional(Schema.Number).annotate({ description: "Match only this heading depth (e.g., 2 for H2)." }),
+      pageSize: Schema.optional(Schema.Number).annotate({
+        description:
+          "Lines per page for pageStart/pageEnd calculations. Defaults to 200 and caps at 500.",
+      }),
+    },
+    success: Schema.Struct({
+      content: Schema.String,
+      fromLine: Schema.Number,
+      toLine: Schema.Number,
+      pageStart: Schema.Number,
+      pageEnd: Schema.Number,
+      totalPages: Schema.Number,
+    }),
+  })
+    .annotate(AiTool.Readonly, true)
+    .annotate(AiTool.Destructive, false),
 )
 
 interface DocumentEntry {
@@ -68,6 +114,7 @@ interface DocumentEntry {
   readonly description?: string
   readonly preview: string
   readonly content: Effect.Effect<string>
+  readonly headings: ReadonlyArray<{ depth: number; text: string; line: number }>
 }
 
 const ToolkitLayer = pipe(
@@ -93,6 +140,7 @@ const ToolkitLayer = pipe(
           description: doc.description,
           preview: doc.preview,
           content: doc.content,
+          headings: doc.headings,
         }
         docs.push(entry)
         minisearch.add(entry)
@@ -147,6 +195,7 @@ const ToolkitLayer = pipe(
                   description: file.description,
                   preview: makePreview(file.content) || file.description || titleFromPath,
                   content: Effect.succeed(file.content),
+                  headings: file.headings,
                 })
               }
             }),
@@ -169,6 +218,35 @@ const ToolkitLayer = pipe(
         capacity: 512,
         timeToLive: "12 hours",
       })
+
+      const defaultPageSize = 200
+
+      const clampPageSize = (pageSize?: number) =>
+        Math.min(Math.max(Math.floor(pageSize ?? defaultPageSize), 1), 500)
+
+      const findSectionRange = (
+        hs: ReadonlyArray<{ depth: number; text: string; line: number }>,
+        query: string,
+        depth?: number,
+      ) => {
+        const norm = (s: string) => s.toLowerCase().replace(/[`*_~\[\]();:.,!?"'<>#]/g, "").trim()
+        const q = norm(query)
+        const filtered = depth ? hs.filter((h) => h.depth === depth) : hs
+        const idx = filtered.findIndex((h) => norm(h.text).includes(q))
+        if (idx < 0) return null
+        const startLine = filtered[idx].line
+        // end: next heading with depth <= current depth (within original array order)
+        const origIdx = hs.findIndex((h) => h.line === filtered[idx].line)
+        const thisDepth = filtered[idx].depth
+        let endLine = Infinity
+        for (let i = origIdx + 1; i < hs.length; i++) {
+          if (hs[i].depth <= thisDepth) {
+            endLine = hs[i].line - 1
+            break
+          }
+        }
+        return { startLine, endLine }
+      }
 
       return toolkit.of({
         bun_docs_search: Effect.fnUntraced(function* ({ query }) {
@@ -205,7 +283,7 @@ const ToolkitLayer = pipe(
 
         get_bun_doc: Effect.fnUntraced(function* ({ documentId, page = 1, pageSize }) {
           const start = Date.now()
-          const size = Math.min(Math.max(Math.floor(pageSize ?? 200), 1), 500)
+          const size = clampPageSize(pageSize)
 
           yield* Effect.annotateCurrentSpan({
             tool: "get_bun_doc",
@@ -247,6 +325,114 @@ const ToolkitLayer = pipe(
             documentId,
             page: currentPage,
             pageSize: size,
+            totalPages: pages,
+            contentLength: payload.content.length,
+          })
+
+          return payload
+        }),
+
+        get_bun_doc_pages: Effect.fnUntraced(function* ({ documentId, startPage, endPage, pageSize }) {
+          const start = Date.now()
+          const size = clampPageSize(pageSize)
+
+          yield* Effect.annotateCurrentSpan({
+            tool: "get_bun_doc_pages",
+            documentId,
+            startPage,
+            endPage,
+            pageSize: size,
+          })
+          yield* Effect.logDebug("tool.start", {
+            tool: "get_bun_doc_pages",
+            documentId,
+            startPage,
+            endPage,
+            pageSize: size,
+          })
+
+          const lines = yield* Cache.get(cache, documentId)
+          const pages = Math.max(1, Math.ceil(lines.length / size))
+          const s = Math.min(Math.max(startPage, 1), pages)
+          const e = Math.min(Math.max(endPage ?? startPage, s), pages)
+          const startOffset = (s - 1) * size
+          const endOffset = e * size
+
+          const payload = {
+            content: lines.slice(startOffset, endOffset).join("\n"),
+            startPage: s,
+            endPage: e,
+            totalPages: pages,
+          }
+
+          yield* Effect.logInfo("tool.success", {
+            tool: "get_bun_doc_pages",
+            durationMs: Date.now() - start,
+            documentId,
+            startPage: s,
+            endPage: e,
+            pageSize: size,
+            totalPages: pages,
+            contentLength: payload.content.length,
+          })
+
+          return payload
+        }),
+
+        get_bun_doc_section: Effect.fnUntraced(function* ({ documentId, heading, depth, pageSize }) {
+          const start = Date.now()
+          const size = clampPageSize(pageSize)
+
+          yield* Effect.annotateCurrentSpan({
+            tool: "get_bun_doc_section",
+            documentId,
+            heading: heading.slice(0, 200),
+            depth: depth ?? null,
+            pageSize: size,
+          })
+          yield* Effect.logDebug("tool.start", {
+            tool: "get_bun_doc_section",
+            documentId,
+            heading: heading.slice(0, 200),
+            depth: depth ?? null,
+            pageSize: size,
+          })
+
+          const doc = docs[documentId]
+          if (!doc) {
+            return yield* Effect.fail(new Error("Document not found"))
+          }
+
+          const lines = yield* Cache.get(cache, documentId)
+          const match = findSectionRange(doc.headings, heading, depth)
+          if (match == null) {
+            return yield* Effect.fail(new Error("Section not found"))
+          }
+
+          const from = Math.max(1, match.startLine)
+          const to = Math.min(lines.length, match.endLine === Infinity ? lines.length : match.endLine)
+          const content = lines.slice(from - 1, to).join("\n")
+          const pages = Math.max(1, Math.ceil(lines.length / size))
+          const pageStart = Math.min(Math.max(Math.ceil(from / size), 1), pages)
+          const pageEnd = Math.min(Math.max(Math.ceil(to / size), pageStart), pages)
+
+          const payload = {
+            content,
+            fromLine: from,
+            toLine: to,
+            pageStart,
+            pageEnd,
+            totalPages: pages,
+          }
+
+          yield* Effect.logInfo("tool.success", {
+            tool: "get_bun_doc_section",
+            durationMs: Date.now() - start,
+            documentId,
+            heading: heading.slice(0, 100),
+            depth: depth ?? null,
+            pageStart,
+            pageEnd,
             totalPages: pages,
             contentLength: payload.content.length,
           })
