@@ -1,5 +1,5 @@
 {
-  "name": "bun-mcp",
+  "name": "bun-mcp2",
   "version": "0.1.4",
   "type": "module",
   "publishConfig": {
@@ -7,7 +7,7 @@
     "directory": "dist"
   },
   "bin": {
-    "bun-mcp": "./dist/main.cjs"
+    "bun-mcp2": "./dist/main.cjs"
   },
   "files": [
     "dist",
