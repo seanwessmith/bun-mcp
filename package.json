@@ -1,13 +1,13 @@
 {
-  "name": "effect-mcp2",
-  "version": "0.1.17",
+  "name": "bun-mcp",
+  "version": "0.1.0",
   "type": "module",
   "publishConfig": {
     "access": "public",
     "directory": "dist"
   },
   "bin": {
-    "effect-mcp2": "./dist/main.cjs"
+    "bun-mcp": "./dist/main.cjs"
   },
   "files": [
     "dist",
@@ -29,7 +29,7 @@
     "@changesets/cli": "^2.29.7",
     "@effect/language-service": "^0.41.1",
     "@effect/platform-node": "https://pkg.pr.new/Effect-TS/effect-smol/@effect/platform-node@7b514c2",
-    "@types/node": "^24.6.0",
+    "@types/node": "^24.6.2",
     "@types/unist": "^3.0.3",
     "effect": "https://pkg.pr.new/Effect-TS/effect-smol/effect@7b514c2",
     "esbuild-visualizer": "^0.7.0",
@@ -41,7 +41,7 @@
     "remark-stringify": "^11.0.0",
     "tsup": "^8.5.0",
     "tsx": "^4.20.6",
-    "typescript": "^5.9.2",
+    "typescript": "^5.9.3",
     "unified": "^11.0.5",
     "vitest": "^3.2.4"
   },
