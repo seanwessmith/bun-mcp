@@ -22,7 +22,7 @@
     "lint": "prettier --check .",
     "test": "vitest run",
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
-    "prepublishOnly": "pnpm version patch && pnpm build"
+    "prepublishOnly": "pnpm build"
   },
   "devDependencies": {
     "@changesets/changelog-github": "^0.5.1",
