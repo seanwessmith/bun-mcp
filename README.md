@@ -1,77 +1,84 @@
-# Bun Docs MCP Server
+# Bun Documentation MCP Server
 
-This MCP server exposes tools and resources for searching and reading the Bun documentation (implemented with Effect runtime and layering).
+Search and read the official Bun documentation from MCP-compatible clients without leaving the agent workflow. The server crawls Bun's published documentation, builds an in-memory search index, and returns paginated or section-scoped Markdown.
 
-What you get:
+**Status:** Active public package. The verified npm command is `bun-mcp2` (latest tested release: `0.1.5`).
 
-- Tools
-  - `bun_docs_search({ query }) -> { results: { documentId, title, description? }[] }`
-  - `get_bun_doc({ documentId, page?, pageSize? }) -> { content, page, totalPages }`
-    - `pageSize` defaults to 200 and is capped at 500.
-  - `get_bun_doc_pages({ documentId, startPage, endPage?, pageSize? }) -> { content, startPage, endPage, totalPages }`
-  - `get_bun_doc_section({ documentId, heading, depth?, pageSize? }) -> { content, fromLine, toLine, pageStart, pageEnd, totalPages }`
-- Resources
-  - `bun://doc/installation`
-  - `bun://doc/quickstart`
-  - `bun://doc/bundler`
-  - `bun://doc/runtime/bun-apis`
+## What it exposes
 
-How it works:
+- `bun_docs_search` — find documentation by topic
+- `get_bun_doc` — read one paginated document
+- `get_bun_doc_pages` — read a page range in one call
+- `get_bun_doc_section` — retrieve a named heading and its children
+- Bun documentation resources for installation, quickstart, bundling, and runtime APIs
 
-- Crawls `https://bun.com/sitemap.xml` and fetches markdown from `https://bun.com/docs/<slug>.md`.
-- Parses titles/descriptions via a small Markdown processor.
-- Builds an in-memory MiniSearch index and serves paginated content slices.
+The implementation uses Effect for service composition, logging, caching, HTTP access, and the stdio MCP runtime.
 
-## Usage
+## Install
 
-Run with Docker:
+Run directly from npm:
 
 ```bash
-docker run --rm -i timsmart/effect-mcp2
+npx -y bun-mcp2@latest
 ```
 
-Or use npx:
+The first run needs internet access to fetch the package and Bun documentation.
 
-```bash
-npx -y effect-mcp2@latest
-```
+### Cursor
 
-## Cursor
-
-Add to your Cursor `mcp.json`:
+Add this entry to `mcp.json`:
 
 ```json
-"bun-docs": {
-  "command": "npx",
-  "args": ["-y", "effect-mcp2@latest"]
+{
+  "bun-docs": {
+    "command": "npx",
+    "args": ["-y", "bun-mcp2@latest"]
+  }
 }
 ```
 
-## Claude Code
-
-Register with Claude Code:
+### Claude Code
 
 ```bash
 claude mcp add-json bun-docs '{
   "command": "npx",
-  "args": [
-    "-y",
-    "effect-mcp2@latest"
-  ],
+  "args": ["-y", "bun-mcp2@latest"],
   "env": {}
 }' -s user
 ```
 
+## Example workflow
+
+```text
+1. bun_docs_search({ "query": "HTML imports" })
+2. get_bun_doc_section({ "documentId": "...", "heading": "HTML imports" })
+3. Use the returned Markdown and source path in the implementation decision.
+```
+
+Search is for discovery. Use page ranges when you need surrounding context and section retrieval when you already know the heading.
+
+## How it works
+
+1. Read `https://bun.com/sitemap.xml`.
+2. Fetch Markdown from Bun's published documentation endpoints.
+3. Parse titles and descriptions and build a MiniSearch index.
+4. Serve bounded content slices over stdio so clients can control context size.
+
 ## Development
 
-- Build: `pnpm build`
-- Test: `pnpm test` (see `src/*.test.ts`)
-- Dev (watch): `pnpm dev`
+This repository pins pnpm `10.18.0` in `package.json`.
 
-## Notes
+```bash
+pnpm install --frozen-lockfile
+pnpm check
+```
 
-- This server uses Effect for layering, logging, HTTP client, and caching.
-- Prefer using `bun_docs_search` for discovery; then:
-  - Use `get_bun_doc` for a single page.
-  - Use `get_bun_doc_pages` to reduce call count when you need a range.
-  - Use `get_bun_doc_section` to fetch a specific heading’s content directly.
+`pnpm check` runs formatting, type checking, tests, and the production build. To run the server in watch mode:
+
+```bash
+pnpm dev
+```
+
+## License
+
+MIT

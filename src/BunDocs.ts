@@ -4,7 +4,7 @@ import { Cache } from "effect/caching"
 import { Path } from "effect/platform"
 import { Schema } from "effect/schema"
 import { Duration } from "effect/time"
-import { AiTool, AiToolkit, McpServer } from "effect/unstable/ai"
+import { AiError, AiTool, AiToolkit, McpServer } from "effect/unstable/ai"
 import { HttpClient, HttpClientResponse } from "effect/unstable/http"
 import Minisearch from "minisearch"
 import { Markdown } from "./Markdown.js"
@@ -66,8 +66,12 @@ const toolkit = AiToolkit.make(
       "Get multiple pages of a Bun doc in one call (inclusive range).",
     parameters: {
       documentId,
-      startPage: Schema.Number.annotate({ description: "Start page (1-indexed)." }),
-      endPage: Schema.optional(Schema.Number).annotate({ description: "End page (inclusive). Defaults to startPage." }),
+      startPage: Schema.Number.annotate({
+        description: "Start page (1-indexed).",
+      }),
+      endPage: Schema.optional(Schema.Number).annotate({
+        description: "End page (inclusive). Defaults to startPage.",
+      }),
       pageSize: Schema.optional(Schema.Number).annotate({
         description:
           "Lines per page. Defaults to 200 and caps at 500 to avoid oversized responses.",
@@ -88,8 +92,12 @@ const toolkit = AiToolkit.make(
       "Get a specific section of a Bun doc by heading text. Returns content and page bounds.",
     parameters: {
       documentId,
-      heading: Schema.String.annotate({ description: "Heading text to locate (case-insensitive)." }),
-      depth: Schema.optional(Schema.Number).annotate({ description: "Match only this heading depth (e.g., 2 for H2)." }),
+      heading: Schema.String.annotate({
+        description: "Heading text to locate (case-insensitive).",
+      }),
+      depth: Schema.optional(Schema.Number).annotate({
+        description: "Match only this heading depth (e.g., 2 for H2).",
+      }),
       pageSize: Schema.optional(Schema.Number).annotate({
         description:
           "Lines per page for pageStart/pageEnd calculations. Defaults to 200 and caps at 500.",
@@ -114,7 +122,11 @@ interface DocumentEntry {
   readonly description?: string
   readonly preview: string
   readonly content: Effect.Effect<string>
-  readonly headings: ReadonlyArray<{ depth: number; text: string; line: number }>
+  readonly headings: ReadonlyArray<{
+    depth: number
+    text: string
+    line: number
+  }>
 }
 
 const ToolkitLayer = pipe(
@@ -156,9 +168,7 @@ const ToolkitLayer = pipe(
         }, "")
 
       const tryFetchText = (url: string) =>
-        client.get(url).pipe(
-          Effect.flatMap((response) => response.text),
-        )
+        client.get(url).pipe(Effect.flatMap((response) => response.text))
 
       // Load Bun docs from sitemap, fetch markdown when available
       const loadDocs = Effect.gen(function* () {
@@ -193,7 +203,10 @@ const ToolkitLayer = pipe(
                 addDoc({
                   title: file.title || titleFromPath,
                   description: file.description,
-                  preview: makePreview(file.content) || file.description || titleFromPath,
+                  preview:
+                    makePreview(file.content) ||
+                    file.description ||
+                    titleFromPath,
                   content: Effect.succeed(file.content),
                   headings: file.headings,
                 })
@@ -229,7 +242,11 @@ const ToolkitLayer = pipe(
         query: string,
         depth?: number,
       ) => {
-        const norm = (s: string) => s.toLowerCase().replace(/[`*_~\[\]();:.,!?"'<>#]/g, "").trim()
+        const norm = (s: string) =>
+          s
+            .toLowerCase()
+            .replace(/[`*_~\[\]();:.,!?"'<>#]/g, "")
+            .trim()
         const q = norm(query)
         const filtered = depth ? hs.filter((h) => h.depth === depth) : hs
         const idx = filtered.findIndex((h) => norm(h.text).includes(q))
@@ -251,8 +268,14 @@ const ToolkitLayer = pipe(
       return toolkit.of({
         bun_docs_search: Effect.fnUntraced(function* ({ query }) {
           const start = Date.now()
-          yield* Effect.annotateCurrentSpan({ tool: "bun_docs_search", query: query.slice(0, 200) })
-          yield* Effect.logDebug("tool.start", { tool: "bun_docs_search", query: query.slice(0, 200) })
+          yield* Effect.annotateCurrentSpan({
+            tool: "bun_docs_search",
+            query: query.slice(0, 200),
+          })
+          yield* Effect.logDebug("tool.start", {
+            tool: "bun_docs_search",
+            query: query.slice(0, 200),
+          })
 
           const results = yield* Effect.orDie(search(query)).pipe(
             Effect.catch((cause) =>
@@ -281,7 +304,11 @@ const ToolkitLayer = pipe(
           return payload
         }),
 
-        get_bun_doc: Effect.fnUntraced(function* ({ documentId, page = 1, pageSize }) {
+        get_bun_doc: Effect.fnUntraced(function* ({
+          documentId,
+          page = 1,
+          pageSize,
+        }) {
           const start = Date.now()
           const size = clampPageSize(pageSize)
 
@@ -332,7 +359,12 @@ const ToolkitLayer = pipe(
           return payload
         }),
 
-        get_bun_doc_pages: Effect.fnUntraced(function* ({ documentId, startPage, endPage, pageSize }) {
+        get_bun_doc_pages: Effect.fnUntraced(function* ({
+          documentId,
+          startPage,
+          endPage,
+          pageSize,
+        }) {
           const start = Date.now()
           const size = clampPageSize(pageSize)
 
@@ -379,7 +411,12 @@ const ToolkitLayer = pipe(
           return payload
         }),
 
-        get_bun_doc_section: Effect.fnUntraced(function* ({ documentId, heading, depth, pageSize }) {
+        get_bun_doc_section: Effect.fnUntraced(function* ({
+          documentId,
+          heading,
+          depth,
+          pageSize,
+        }) {
           const start = Date.now()
           const size = clampPageSize(pageSize)
 
@@ -400,21 +437,39 @@ const ToolkitLayer = pipe(
 
           const doc = docs[documentId]
           if (!doc) {
-            return yield* Effect.fail(new Error("Document not found"))
+            return yield* Effect.fail(
+              new AiError.AiError({
+                module: "BunDocs",
+                method: "get_bun_doc_section",
+                description: "Document not found",
+              }),
+            )
           }
 
           const lines = yield* Cache.get(cache, documentId)
           const match = findSectionRange(doc.headings, heading, depth)
           if (match == null) {
-            return yield* Effect.fail(new Error("Section not found"))
+            return yield* Effect.fail(
+              new AiError.AiError({
+                module: "BunDocs",
+                method: "get_bun_doc_section",
+                description: "Section not found",
+              }),
+            )
           }
 
           const from = Math.max(1, match.startLine)
-          const to = Math.min(lines.length, match.endLine === Infinity ? lines.length : match.endLine)
+          const to = Math.min(
+            lines.length,
+            match.endLine === Infinity ? lines.length : match.endLine,
+          )
           const content = lines.slice(from - 1, to).join("\n")
           const pages = Math.max(1, Math.ceil(lines.length / size))
           const pageStart = Math.min(Math.max(Math.ceil(from / size), 1), pages)
-          const pageEnd = Math.min(Math.max(Math.ceil(to / size), pageStart), pages)
+          const pageEnd = Math.min(
+            Math.max(Math.ceil(to / size), pageStart),
+            pages,
+          )
 
           const payload = {
             content,
@@ -442,9 +497,15 @@ const ToolkitLayer = pipe(
       })
     }),
   ),
-  Layer.provide([NodeHttpClient.layerUndici, NodePath.layerPosix, Markdown.layer]),
+  Layer.provide([
+    NodeHttpClient.layerUndici,
+    NodePath.layerPosix,
+    Markdown.layer,
+  ]),
 )
 
-export const BunDocsTools = McpServer.toolkit(toolkit).pipe(Layer.provide(ToolkitLayer))
+export const BunDocsTools = McpServer.toolkit(toolkit).pipe(
+  Layer.provide(ToolkitLayer),
+)
 
 const retryPolicy = Schedule.spaced(Duration.seconds(3))

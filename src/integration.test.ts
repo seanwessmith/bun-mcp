@@ -1,4 +1,9 @@
-import { NodeHttpClient, NodePath, NodeSink, NodeStream } from "@effect/platform-node"
+import {
+  NodeHttpClient,
+  NodePath,
+  NodeSink,
+  NodeStream,
+} from "@effect/platform-node"
 import { Effect, Layer, Schedule } from "effect"
 import { Cache } from "effect/caching"
 import { Path } from "effect/platform"
@@ -23,7 +28,7 @@ describe("Integration Tests", () => {
             version: "1.0.0",
             stdin: NodeStream.stdin,
             stdout: NodeSink.stdout,
-          })
+          }),
         ),
         Effect.provide([BunDocsTools, BunResources]),
         Effect.scoped,
@@ -55,13 +60,15 @@ describe("Integration Tests", () => {
     })
 
     it("should gracefully handle layer initialization failures", async () => {
-      const failingLayer = Layer.effectDiscard(Effect.fail("Initialization failed"))
+      const failingLayer = Layer.effectDiscard(
+        Effect.fail("Initialization failed"),
+      )
 
       await expect(
         Effect.succeed("test").pipe(
           Effect.provide(failingLayer),
           Effect.runPromise,
-        )
+        ),
       ).rejects.toThrow()
     })
   })
@@ -111,7 +118,10 @@ describe("Integration Tests", () => {
 
     describe("get_bun_doc", () => {
       it("should retrieve document content with pagination", async () => {
-        const mockContent = Array.from({ length: 500 }, (_, i) => `Line ${i + 1}`)
+        const mockContent = Array.from(
+          { length: 500 },
+          (_, i) => `Line ${i + 1}`,
+        )
 
         const paginate = (page: number, pageSize: number = 200) => {
           const size = Math.min(Math.max(Math.floor(pageSize), 1), 500)
@@ -137,7 +147,10 @@ describe("Integration Tests", () => {
       })
 
       it("should respect pageSize parameter", async () => {
-        const mockContent = Array.from({ length: 300 }, (_, i) => `Line ${i + 1}`)
+        const mockContent = Array.from(
+          { length: 300 },
+          (_, i) => `Line ${i + 1}`,
+        )
 
         const paginate = (pageSize: number) => {
           const size = Math.min(Math.max(Math.floor(pageSize), 1), 500)
@@ -158,7 +171,11 @@ describe("Integration Tests", () => {
           if (id < 0 || id > 100) {
             return Effect.fail(new Error("Invalid document ID"))
           }
-          return Effect.succeed({ content: "Valid doc", page: 1, totalPages: 1 })
+          return Effect.succeed({
+            content: "Valid doc",
+            page: 1,
+            totalPages: 1,
+          })
         }
 
         await expect(Effect.runPromise(getDoc(-1))).rejects.toThrow()
@@ -180,7 +197,7 @@ describe("Integration Tests", () => {
 
       const retryPolicy = Schedule.spaced(Duration.millis(100))
       const result = await Effect.runPromise(
-        failingRequest.pipe(Effect.retry(retryPolicy))
+        failingRequest.pipe(Effect.retry(retryPolicy)),
       )
 
       expect(result).toBe("success")
@@ -201,9 +218,7 @@ describe("Integration Tests", () => {
         return "success"
       })
 
-      await Effect.runPromise(
-        failingRequest.pipe(Effect.retry(retryPolicy))
-      )
+      await Effect.runPromise(failingRequest.pipe(Effect.retry(retryPolicy)))
 
       expect(attemptCount).toBe(4)
       expect(timestamps.length).toBe(4)
@@ -226,9 +241,7 @@ describe("Integration Tests", () => {
       const retryPolicy = Schedule.recurs(3)
 
       await expect(
-        Effect.runPromise(
-          alwaysFailingRequest.pipe(Effect.retry(retryPolicy))
-        )
+        Effect.runPromise(alwaysFailingRequest.pipe(Effect.retry(retryPolicy))),
       ).rejects.toThrow("Permanent error")
 
       expect(attemptCount).toBe(4) // Initial attempt + 3 retries
@@ -247,9 +260,7 @@ describe("Integration Tests", () => {
       })
 
       const result = await Effect.runPromise(
-        request.pipe(
-          Effect.retry(Schedule.spaced(Duration.millis(10)))
-        )
+        request.pipe(Effect.retry(Schedule.spaced(Duration.millis(10)))),
       )
 
       expect(result).toBe("success")
@@ -269,7 +280,7 @@ describe("Integration Tests", () => {
             }),
           capacity: 10,
           timeToLive: Duration.seconds(60),
-        })
+        }),
       )
 
       const value1 = await Effect.runPromise(Cache.get(cache, 1))
@@ -286,7 +297,7 @@ describe("Integration Tests", () => {
           lookup: (key: number) => Effect.succeed(`value-${key}`),
           capacity: 3,
           timeToLive: Duration.seconds(60),
-        })
+        }),
       )
 
       // Fill cache beyond capacity
@@ -311,7 +322,7 @@ describe("Integration Tests", () => {
             }),
           capacity: 10,
           timeToLive: Duration.millis(100),
-        })
+        }),
       )
 
       await Effect.runPromise(Cache.get(cache, 1))
@@ -336,19 +347,15 @@ describe("Integration Tests", () => {
             }),
           capacity: 10,
           timeToLive: Duration.seconds(60),
-        })
+        }),
       )
 
       // Access same key concurrently
       const results = await Effect.runPromise(
         Effect.all(
-          [
-            Cache.get(cache, 1),
-            Cache.get(cache, 1),
-            Cache.get(cache, 1),
-          ],
-          { concurrency: "unbounded" }
-        )
+          [Cache.get(cache, 1), Cache.get(cache, 1), Cache.get(cache, 1)],
+          { concurrency: "unbounded" },
+        ),
       )
 
       expect(results).toEqual(["value-1", "value-1", "value-1"])
@@ -366,7 +373,7 @@ describe("Integration Tests", () => {
             }),
           capacity: 10,
           timeToLive: Duration.seconds(60),
-        })
+        }),
       )
 
       await Effect.runPromise(Cache.get(cache, 1))
@@ -394,11 +401,7 @@ describe("Integration Tests", () => {
 
       const startTime = Date.now()
       const results = await Effect.runPromise(
-        Effect.forEach(
-          [1, 2, 3, 4, 5],
-          loadDoc,
-          { concurrency: "unbounded" }
-        )
+        Effect.forEach([1, 2, 3, 4, 5], loadDoc, { concurrency: "unbounded" }),
       )
       const duration = Date.now() - startTime
 
@@ -422,11 +425,9 @@ describe("Integration Tests", () => {
         })
 
       await Effect.runPromise(
-        Effect.forEach(
-          [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-          loadDoc,
-          { concurrency: 3 }
-        )
+        Effect.forEach([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], loadDoc, {
+          concurrency: 3,
+        }),
       )
 
       expect(maxConcurrent).toBeLessThanOrEqual(3)
@@ -444,12 +445,10 @@ describe("Integration Tests", () => {
 
       await expect(
         Effect.runPromise(
-          Effect.forEach(
-            [1, 2, 3, 4, 5],
-            loadDoc,
-            { concurrency: "unbounded" }
-          )
-        )
+          Effect.forEach([1, 2, 3, 4, 5], loadDoc, {
+            concurrency: "unbounded",
+          }),
+        ),
       ).rejects.toThrow("Failed to load doc 3")
     })
 
@@ -461,11 +460,7 @@ describe("Integration Tests", () => {
         })
 
       const results = await Effect.runPromise(
-        Effect.forEach(
-          [1, 2, 3, 4, 5],
-          loadDoc,
-          { concurrency: "unbounded" }
-        )
+        Effect.forEach([1, 2, 3, 4, 5], loadDoc, { concurrency: "unbounded" }),
       )
 
       expect(results).toHaveLength(5)
@@ -483,7 +478,7 @@ describe("Integration Tests", () => {
               yield* Effect.sleep(Duration.millis(10))
               return { source, id, content: `${source}-${id}` }
             }),
-          { concurrency: 5 }
+          { concurrency: 5 },
         )
 
       const startTime = Date.now()
@@ -494,8 +489,8 @@ describe("Integration Tests", () => {
             loadFromSource("github", 5),
             loadFromSource("docs", 5),
           ],
-          { concurrency: "unbounded" }
-        )
+          { concurrency: "unbounded" },
+        ),
       )
       const duration = Date.now() - startTime
 
@@ -518,7 +513,7 @@ describe("Integration Tests", () => {
       ]
 
       const results = await Effect.runPromise(
-        Effect.all(operations, { concurrency: "unbounded" })
+        Effect.all(operations, { concurrency: "unbounded" }),
       )
 
       expect(results).toEqual([1, 2, 3, 4, 5])

@@ -80,7 +80,7 @@ describe("BunDocs", () => {
         description: "Bun's native bundler",
       }
       const validated = await Effect.runPromise(
-        Schema.decodeUnknownEffect(SearchResult)(result)
+        Schema.decodeUnknownEffect(SearchResult)(result),
       )
       expect(validated).toMatchObject(result)
     })
@@ -88,7 +88,7 @@ describe("BunDocs", () => {
     it("should validate SearchResult without description", async () => {
       const result = { documentId: 42, title: "bun install" }
       const validated = await Effect.runPromise(
-        Schema.decodeUnknownEffect(SearchResult)(result)
+        Schema.decodeUnknownEffect(SearchResult)(result),
       )
       expect(validated).toMatchObject(result)
     })
@@ -96,14 +96,14 @@ describe("BunDocs", () => {
     it("should fail with invalid documentId type", async () => {
       const result = { documentId: "not-a-number", title: "Bun.build" }
       await expect(
-        Effect.runPromise(Schema.decodeUnknownEffect(SearchResult)(result))
+        Effect.runPromise(Schema.decodeUnknownEffect(SearchResult)(result)),
       ).rejects.toThrow()
     })
 
     it("should fail with missing required fields", async () => {
       const result = { documentId: 42 }
       await expect(
-        Effect.runPromise(Schema.decodeUnknownEffect(SearchResult)(result))
+        Effect.runPromise(Schema.decodeUnknownEffect(SearchResult)(result)),
       ).rejects.toThrow()
     })
   })
@@ -138,8 +138,18 @@ describe("BunDocs", () => {
 
     it("should boost title matches over description matches", () => {
       const docs: TestDoc[] = [
-        { id: 0, title: "Something else", description: "bundler", preview: "Other content" },
-        { id: 1, title: "Bun bundler", description: "bundler docs", preview: "fast" },
+        {
+          id: 0,
+          title: "Something else",
+          description: "bundler",
+          preview: "Other content",
+        },
+        {
+          id: 1,
+          title: "Bun bundler",
+          description: "bundler docs",
+          preview: "fast",
+        },
       ]
       const index = createSearchIndex(docs)
       const results = index.search("bundler")
@@ -149,8 +159,18 @@ describe("BunDocs", () => {
 
     it("should search across multiple fields", () => {
       const docs: TestDoc[] = [
-        { id: 0, title: "Bun.test", description: "Create tests", preview: "Testing" },
-        { id: 1, title: "Different", description: "No match", preview: "Nothing here" },
+        {
+          id: 0,
+          title: "Bun.test",
+          description: "Create tests",
+          preview: "Testing",
+        },
+        {
+          id: 1,
+          title: "Different",
+          description: "No match",
+          preview: "Nothing here",
+        },
       ]
       const index = createSearchIndex(docs)
       const results = index.search("tests")
@@ -159,7 +179,9 @@ describe("BunDocs", () => {
     })
 
     it("should handle partial word matches", () => {
-      const docs: TestDoc[] = [{ id: 0, title: "Bun.build", preview: "Bundler" }]
+      const docs: TestDoc[] = [
+        { id: 0, title: "Bun.build", preview: "Bundler" },
+      ]
       const index = createSearchIndex(docs)
       const results = index.search("bun")
       expect(results.length).toBeGreaterThan(0)
@@ -188,9 +210,24 @@ describe("BunDocs", () => {
 
     it("should prefer more relevant results", () => {
       const docs: TestDoc[] = [
-        { id: 0, title: "map", description: "The map function", preview: "map map map" },
-        { id: 1, title: "filter", description: "Contains map", preview: "Filtering" },
-        { id: 2, title: "reduce", description: "Reduce arrays", preview: "map mentioned once" },
+        {
+          id: 0,
+          title: "map",
+          description: "The map function",
+          preview: "map map map",
+        },
+        {
+          id: 1,
+          title: "filter",
+          description: "Contains map",
+          preview: "Filtering",
+        },
+        {
+          id: 2,
+          title: "reduce",
+          description: "Reduce arrays",
+          preview: "map mentioned once",
+        },
       ]
       const index = createSearchIndex(docs)
       const results = index.search("map")
@@ -200,8 +237,18 @@ describe("BunDocs", () => {
 
     it("should search with multiple terms", () => {
       const docs: TestDoc[] = [
-        { id: 0, title: "Bun.build", description: "Bundles code", preview: "Bundler" },
-        { id: 1, title: "Array.map", description: "Maps arrays", preview: "Array mapping" },
+        {
+          id: 0,
+          title: "Bun.build",
+          description: "Bundles code",
+          preview: "Bundler",
+        },
+        {
+          id: 1,
+          title: "Array.map",
+          description: "Maps arrays",
+          preview: "Array mapping",
+        },
       ]
       const index = createSearchIndex(docs)
       const results = index.search("bun build")
@@ -210,7 +257,9 @@ describe("BunDocs", () => {
     })
 
     it("should handle empty search query", () => {
-      const docs: TestDoc[] = [{ id: 0, title: "Bun.build", preview: "Bundler" }]
+      const docs: TestDoc[] = [
+        { id: 0, title: "Bun.build", preview: "Bundler" },
+      ]
       const index = createSearchIndex(docs)
       const results = index.search("")
       expect(results.length).toBe(0)

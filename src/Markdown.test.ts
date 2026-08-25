@@ -18,7 +18,7 @@ author: Test Author
           Effect.gen(function* () {
             const service = yield* Markdown
             return yield* service.process(markdown)
-          }).pipe(Effect.provide(Markdown.layer))
+          }).pipe(Effect.provide(Markdown.layer)),
         )
 
         expect(result.frontmatter).toEqual({
@@ -37,7 +37,7 @@ Some content`
           Effect.gen(function* () {
             const service = yield* Markdown
             return yield* service.process(markdown)
-          }).pipe(Effect.provide(Markdown.layer))
+          }).pipe(Effect.provide(Markdown.layer)),
         )
 
         expect(result.frontmatter).toEqual({})
@@ -53,7 +53,7 @@ Some content`
           Effect.gen(function* () {
             const service = yield* Markdown
             return yield* service.process(markdown)
-          }).pipe(Effect.provide(Markdown.layer))
+          }).pipe(Effect.provide(Markdown.layer)),
         )
 
         expect(result.frontmatter).toEqual({})
@@ -73,10 +73,12 @@ Some content`
           Effect.gen(function* () {
             const service = yield* Markdown
             return yield* service.process(markdown)
-          }).pipe(Effect.provide(Markdown.layer))
+          }).pipe(Effect.provide(Markdown.layer)),
         )
 
-        expect(result.headings.map(({ depth, text }) => ({ depth, text }))).toEqual([
+        expect(
+          result.headings.map(({ depth, text }) => ({ depth, text })),
+        ).toEqual([
           { depth: 1, text: "Level 1" },
           { depth: 2, text: "Level 2" },
           { depth: 3, text: "Level 3" },
@@ -94,11 +96,13 @@ Some content`
           Effect.gen(function* () {
             const service = yield* Markdown
             return yield* service.process(markdown)
-          }).pipe(Effect.provide(Markdown.layer))
+          }).pipe(Effect.provide(Markdown.layer)),
         )
 
         // The implementation only extracts text nodes, not inline formatting
-        expect(result.headings.map(({ depth, text }) => ({ depth, text }))).toEqual([
+        expect(
+          result.headings.map(({ depth, text }) => ({ depth, text })),
+        ).toEqual([
           { depth: 1, text: "Heading with  and " },
           { depth: 2, text: "Heading with  and " },
         ])
@@ -115,10 +119,12 @@ More content
           Effect.gen(function* () {
             const service = yield* Markdown
             return yield* service.process(markdown)
-          }).pipe(Effect.provide(Markdown.layer))
+          }).pipe(Effect.provide(Markdown.layer)),
         )
 
-        expect(result.headings.map(({ depth, text }) => ({ depth, text }))).toEqual([
+        expect(
+          result.headings.map(({ depth, text }) => ({ depth, text })),
+        ).toEqual([
           { depth: 2, text: "First H2" },
           { depth: 2, text: "Second H2" },
           { depth: 2, text: "Third H2" },
@@ -134,7 +140,7 @@ and no headings`
           Effect.gen(function* () {
             const service = yield* Markdown
             return yield* service.process(markdown)
-          }).pipe(Effect.provide(Markdown.layer))
+          }).pipe(Effect.provide(Markdown.layer)),
         )
 
         expect(result.headings).toEqual([])
@@ -155,7 +161,7 @@ Content`
           Effect.gen(function* () {
             const service = yield* Markdown
             return yield* service.process(markdown)
-          }).pipe(Effect.provide(Markdown.layer))
+          }).pipe(Effect.provide(Markdown.layer)),
         )
 
         expect(result.title).toBe("Frontmatter Title")
@@ -170,7 +176,7 @@ Some content`
           Effect.gen(function* () {
             const service = yield* Markdown
             return yield* service.process(markdown)
-          }).pipe(Effect.provide(Markdown.layer))
+          }).pipe(Effect.provide(Markdown.layer)),
         )
 
         expect(result.title).toBe("H1 Title")
@@ -187,7 +193,7 @@ title: Frontmatter Title
           Effect.gen(function* () {
             const service = yield* Markdown
             return yield* service.process(markdown)
-          }).pipe(Effect.provide(Markdown.layer))
+          }).pipe(Effect.provide(Markdown.layer)),
         )
 
         expect(result.title).toBe("Frontmatter Title")
@@ -201,7 +207,7 @@ without a title`
           Effect.gen(function* () {
             const service = yield* Markdown
             return yield* service.process(markdown)
-          }).pipe(Effect.provide(Markdown.layer))
+          }).pipe(Effect.provide(Markdown.layer)),
         )
 
         expect(result.title).toBe("Untitled")
@@ -216,7 +222,7 @@ without a title`
           Effect.gen(function* () {
             const service = yield* Markdown
             return yield* service.process(markdown)
-          }).pipe(Effect.provide(Markdown.layer))
+          }).pipe(Effect.provide(Markdown.layer)),
         )
 
         expect(result.title).toBe("First H1")
@@ -235,7 +241,7 @@ description: Frontmatter description
           Effect.gen(function* () {
             const service = yield* Markdown
             return yield* service.process(markdown)
-          }).pipe(Effect.provide(Markdown.layer))
+          }).pipe(Effect.provide(Markdown.layer)),
         )
 
         expect(result.description).toBe("Frontmatter description")
@@ -251,10 +257,12 @@ description: Frontmatter description
           Effect.gen(function* () {
             const service = yield* Markdown
             return yield* service.process(markdown)
-          }).pipe(Effect.provide(Markdown.layer))
+          }).pipe(Effect.provide(Markdown.layer)),
         )
 
-        expect(result.description).toBe("- Introduction\n- Features\n- Conclusion")
+        expect(result.description).toBe(
+          "- Introduction\n- Features\n- Conclusion",
+        )
       })
 
       it("should combine frontmatter description with H2s", async () => {
@@ -270,11 +278,11 @@ description: This is a test document
           Effect.gen(function* () {
             const service = yield* Markdown
             return yield* service.process(markdown)
-          }).pipe(Effect.provide(Markdown.layer))
+          }).pipe(Effect.provide(Markdown.layer)),
         )
 
         expect(result.description).toBe(
-          "This is a test document\n\n- Section 1\n- Section 2"
+          "This is a test document\n\n- Section 1\n- Section 2",
         )
       })
 
@@ -287,7 +295,7 @@ Just some content`
           Effect.gen(function* () {
             const service = yield* Markdown
             return yield* service.process(markdown)
-          }).pipe(Effect.provide(Markdown.layer))
+          }).pipe(Effect.provide(Markdown.layer)),
         )
 
         expect(result.description).toBeUndefined()
@@ -304,7 +312,7 @@ Just some content`
           Effect.gen(function* () {
             const service = yield* Markdown
             return yield* service.process(markdown)
-          }).pipe(Effect.provide(Markdown.layer))
+          }).pipe(Effect.provide(Markdown.layer)),
         )
 
         expect(result.description).toBe("- H2 Section\n- Another H2")
@@ -321,7 +329,7 @@ description: "  Spaces around  "
           Effect.gen(function* () {
             const service = yield* Markdown
             return yield* service.process(markdown)
-          }).pipe(Effect.provide(Markdown.layer))
+          }).pipe(Effect.provide(Markdown.layer)),
         )
 
         expect(result.description).toBe("Spaces around")
